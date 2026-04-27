@@ -146,9 +146,7 @@ void do_iret (struct intr_frame *tf);
 
 /* alram clock 과제 함수 정의 */
 void wait_thread(int64_t ticks);
-void check_block_list(int64_t cur_ticks);
-bool thread_priority_greater (const struct list_elem *a_, 
-	const struct list_elem *b_, 
-	void * aux);
+void check_sleep_list(int64_t cur_ticks);
+bool thread_priority_more (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */
