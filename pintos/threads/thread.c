@@ -28,6 +28,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of processes in THREAD_BLOCKED state */
+static struct list block_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -62,6 +65,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
+static bool thread_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -119,6 +123,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	list_init (&block_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -626,4 +631,36 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+
+void wait_thread(int64_t ticks) {
+	struct thread *current_t = thread_current();
+	current_t->wake_tick = ticks;
+
+	enum intr_level old_level = intr_disable();
+	/* timer 인터럽트에서 block_list를 체크하는 작업이 진행되기 때문에 
+		리스트에 넣고 현재 스레드를 block하는 작업이 원자적을 처리 되어야 하기 때문에
+		inter_disable과 intr_set_level의 스코프에 두개의 작업을 넣어준다. */
+	list_insert_ordered(&block_list, &current_t->elem, thread_tick_less, NULL);
+	thread_block();
+
+	intr_set_level(old_level);
+}
+
+void check_block_list(int64_t cur_ticks) {
+	struct thread *front;
+
+	while (!list_empty(&block_list) && (front = list_entry(list_front(&block_list), struct thread, elem)) 
+		&& front->wake_tick <= cur_ticks) {
+		list_pop_front(&block_list);
+		thread_unblock(front);
+	}
+}
+
+static bool thread_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux) {
+	const struct thread *t_a = list_entry(a, struct thread, elem);
+	const struct thread *t_b = list_entry(b, struct thread, elem);
+
+	return t_a->wake_tick < t_b->wake_tick;
 }
