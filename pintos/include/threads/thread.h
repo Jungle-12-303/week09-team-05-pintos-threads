@@ -91,6 +91,7 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	int64_t wakeup_ticks; // 몇 틱을 재우고 싶은지 추가!
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -142,5 +143,13 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+// 글로벌 변수 선언
+extern struct list sleep_list;
+
+// 글로벌 함수 선언
+bool ticks_sort(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+
 
 #endif /* threads/thread.h */

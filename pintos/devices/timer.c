@@ -101,8 +101,24 @@ timer_sleep (int64_t ticks) {
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
+
+	/* //busy waiting - 원래 코드
 	while (timer_elapsed (start) < ticks)
 		thread_yield ();
+	*/
+	
+	enum intr_level old_level;
+	old_level = intr_disable (); // interrupt 잠시 꺼두기
+
+	int64_t curr_ticks = timer_ticks(); // 현재 틱
+
+	struct thread *curr = thread_current();
+	curr->wakeup_ticks = ticks + curr_ticks; // 일어날틱 = 현재 틱 + 꺼두고 싶은 틱
+
+	list_insert_ordered(&sleep_list, &curr->elem, ticks_sort, NULL);
+
+	thread_block();	// thread 재우기
+	intr_set_level(old_level); // intrrupt 다시 켜기
 }
 
 /* Suspends execution for approximately MS milliseconds. */

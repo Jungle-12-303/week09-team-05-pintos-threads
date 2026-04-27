@@ -33,6 +33,9 @@
 /* THREAD_READY 상태의 프로세스 목록, 즉 실행 준비가 되었지만 실제로 실행되지 않는 프로세스들. */
 static struct list ready_list;
 
+/* thread_block()를 사용해서 재운 프로세스들 */
+struct list sleep_list;
+
 /* Idle thread. */
 /* 유휴 스레드. */
 static struct thread *idle_thread;
@@ -129,6 +132,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	list_init (&sleep_list); // 만들어서 초기화
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -634,4 +638,19 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+// list_insert_ordered()의 less 역할을 하는 함수
+// a가 elem, b가 기존 리스트에서 추출된 멤버
+bool ticks_sort(const struct list_elem *a, const struct list_elem *b, void *aux){
+   // 타입을 변환
+   struct thread *A = list_entry(a, struct thread, elem);
+   struct thread *B = list_entry(b, struct thread, elem);
+   
+   if((A->ticks) < (B->ticks)){
+	return 1;
+   }
+   else{
+	return 0;
+   }
 }

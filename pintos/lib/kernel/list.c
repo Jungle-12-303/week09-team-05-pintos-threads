@@ -424,6 +424,7 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 	ASSERT (elem != NULL);
 	ASSERT (less != NULL);
 
+	// e가 리스트를 순회하면서 바뀌는 기존 멤버, elem이 추가하고 싶은 새로운 멤버 후보
 	for (e = list_begin (list); e != list_end (list); e = list_next (e))
 		if (less (elem, e, aux))
 			break;
