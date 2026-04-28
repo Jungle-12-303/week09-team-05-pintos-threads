@@ -237,6 +237,8 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	thread_yield(); // 방금 생성되었어도 우선순위가 높으면 cpu 선점
+
 	return tid;
 }
 
