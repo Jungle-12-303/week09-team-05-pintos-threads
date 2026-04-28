@@ -134,7 +134,6 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 	// check_sleep_list()가 양보하는 1틱때 실행이 안되기 때문에 위에 있어야한다. 
 	check_sleep_list(ticks);
 	thread_tick ();
-	
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

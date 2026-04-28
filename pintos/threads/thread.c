@@ -257,7 +257,17 @@ thread_block (void) {
    This function does not preempt the running thread.  This can
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
-   update other data. */
+   update other data. 
+
+   blocked 상태인 스레드 `T`를 ready-to-run 상태, 즉 실행 준비 상태로 전환한다.
+
+   `T`가 blocked 상태가 아니라면 이것은 오류다.  
+   현재 실행 중인 스레드를 ready 상태로 만들고 싶다면 `thread_yield()`를 사용하라.
+
+   !이 함수는 현재 실행 중인 스레드를 선점하지 않는다.  
+   이 점은 중요할 수 있다: 예를 들어 호출자가 인터럽트를 비활성화한 상태라면, 
+   스레드 하나를 깨우고 다른 데이터를 갱신하는 작업을 원자적으로 처리할 수 있다고 기대할 수 있기 때문이다.
+*/
 void
 thread_unblock (struct thread *t) {
 	enum intr_level old_level;
@@ -274,12 +284,6 @@ thread_unblock (struct thread *t) {
 	intr_set_level (old_level);
 
 	struct thread *curr = thread_current();
-
-	// if (curr != idle_thread && curr->priority < t->priority){
-	// 	// printf("[debug] t priority: %d, thread_yield\n", t->priority);
-	// 	//! 여기
-	// 	thread_yield();
-	// }
 }
 
 /* Returns the name of the running thread. */
@@ -667,13 +671,29 @@ void wait_thread(int64_t ticks) {
 }
 
 void check_sleep_list(int64_t cur_ticks) {
-	struct thread *front;
+	bool should_yield = false;
+	
+	while (!list_empty(&sleep_list)) {
+		struct thread *front =
+      		list_entry (list_front (&sleep_list), struct thread, elem);
 
-	while (!list_empty(&sleep_list) && (front = list_entry(list_front(&sleep_list), struct thread, elem)) 
-		&& front->wake_tick <= cur_ticks) {
+		if (front->wake_tick > cur_ticks) {
+			break;
+		}
+		
 		list_pop_front(&sleep_list);
 		thread_unblock(front);
+
+		if (thread_current()->priority < front->priority) {
+			should_yield = true;
+		}
 	}
+
+	if (should_yield) {
+		intr_yield_on_return();
+	}
+	
+
 }
 
 static bool thread_tick_less (const struct list_elem *a, const struct list_elem *b, void *aux) {

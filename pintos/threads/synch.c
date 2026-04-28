@@ -56,7 +56,17 @@ sema_init (struct semaphore *sema, unsigned value) {
    interrupt handler.  This function may be called with
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. This is
-   sema_down function. */
+   sema_down function. 
+
+   세마포어에 대한 Down 또는 “P” 연산이다.
+
+   `SEMA`의 값이 양수가 될 때까지 기다린 뒤, 그 값을 원자적으로 감소시킨다.
+
+   !이 함수는 잠들 수 있으므로, 인터럽트 핸들러 안에서 호출하면 안 된다.  
+   이 함수는 인터럽트가 비활성화된 상태에서도 호출될 수 있다. 하지만 호출 중에 스레드가 잠들게 되면, 다음에 스케줄되는 스레드가 아마 인터럽트를 다시 켤 것이다.
+
+   이 함수는 `sema_down` 함수이다.
+*/
 void
 sema_down (struct semaphore *sema) {
 	enum intr_level old_level;
@@ -105,18 +115,30 @@ sema_try_down (struct semaphore *sema) {
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
+	struct thread *sema_t = NULL;
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
+
 	if (!list_empty (&sema->waiters)){
-		struct thread *sema_t = list_entry (list_pop_front (&sema->waiters),struct thread, elem);		
+		sema_t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);		
 		thread_unblock(sema_t);
-	}					
+	}
 	sema->value++;
-	//!!!! thread_yield()위치 생각해보자
-	thread_yield();
+
 	intr_set_level (old_level);
+
+	if (sema_t == NULL)
+	return;
+
+	if (sema_t->priority <= thread_current ()->priority)
+	return;
+
+	if (intr_context ())
+		intr_yield_on_return ();
+	else
+		thread_yield ();
 }
 
 static void sema_test_helper (void *sema_);
