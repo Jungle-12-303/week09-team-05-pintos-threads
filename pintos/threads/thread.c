@@ -272,7 +272,11 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
+	/* // 원래 코드
 	list_push_back (&ready_list, &t->elem);
+	*/
+	list_insert_ordered(&ready_list, &t->elem, priority_sort, NULL);
+
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -340,7 +344,11 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
+		/* // 원래 코드
 		list_push_back (&ready_list, &curr->elem);
+		*/
+		list_insert_ordered(&ready_list, &curr->elem, priority_sort, NULL);
+
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
@@ -682,6 +690,21 @@ bool ticks_sort(const struct list_elem *a, const struct list_elem *b, void *aux)
    struct thread *B = list_entry(b, struct thread, elem);
    
    if((A->wakeup_ticks) < (B->wakeup_ticks)){
+	return 1;
+   }
+   else{
+	return 0;
+   }
+}
+
+// 우선순위를 비교하는 함수
+bool priority_sort(const struct list_elem *a, const struct list_elem *b, void *aux){
+   // 타입을 변환
+   struct thread *A = list_entry(a, struct thread, elem);
+   struct thread *B = list_entry(b, struct thread, elem);
+   
+   // 우선순위 큰 게 더 앞으로 와야 함
+   if((A->priority) > (B->priority)){
 	return 1;
    }
    else{
