@@ -364,25 +364,26 @@ void thread_set_priority(int new_priority)
     해당 스레드가 CPU를 점유할 수 있게 현재 스레드를 yield한다.
     */
     struct thread *curr = thread_current();
+    enum intr_level old_level;
+    bool should_yield = false;
 
-    if (list_empty(&curr->donations))
-    {
-        curr->priority = new_priority;
-    }
     curr->original_priority = new_priority;
+    if (list_empty(&curr->donations))
+        curr->priority = new_priority;
 
-    if (list_empty(&ready_list))
+    old_level = intr_disable();
+
+    if (!list_empty(&ready_list))
     {
-        return;
+        struct thread *front =
+            list_entry(list_front(&ready_list), struct thread, elem);
+        should_yield = curr->priority < front->priority;
     }
 
-    struct list_elem *front_elem = list_front(&ready_list);
-    struct thread *front = list_entry(front_elem, struct thread, elem);
+    intr_set_level(old_level);
 
-    if (curr->priority < front->priority)
-    {
+    if (should_yield)
         thread_yield();
-    }
 }
 
 /* Returns the current thread's priority. */
