@@ -398,10 +398,15 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED)
     ASSERT(lock_held_by_current_thread(lock));
 
     if (!list_empty(&cond->waiters))
-        list_sort(&cond->waiters, sema_priority_sort, NULL);
-    sema_up(&list_entry(list_pop_front(&cond->waiters),
-                        struct semaphore_elem, elem)
-                 ->semaphore);
+    {
+        // 우선순위가 가장 높은 아이를 추출
+        struct list_elem *max_elem = list_max(&cond->waiters, sema_priority_sort, NULL);
+
+        // 제일 큰 elem에 대해서 sema up!
+        sema_up(&list_entry(max_elem, struct semaphore_elem, elem)->semaphore);
+        list_remove(max_elem); // 다 썼으니 제거
+    }
+
     thread_yield();
 }
 
