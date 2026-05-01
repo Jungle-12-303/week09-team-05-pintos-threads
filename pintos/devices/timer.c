@@ -96,7 +96,7 @@ timer_sleep (int64_t ticks) {
 
 	ASSERT (intr_get_level () == INTR_ON);
 
-	if (ticks <= 0 && (timer_elapsed(start) >= wake_time))
+	if (ticks <= 0 || (ticks <= timer_elapsed(start)))
 		return;
 
 	wait_thread(wake_time);
