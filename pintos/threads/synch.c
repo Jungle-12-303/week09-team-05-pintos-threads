@@ -227,7 +227,7 @@ void lock_acquire(struct lock *lock)
 
     struct thread *curr = thread_current();
 
-    if (lock->holder != NULL)
+    if (lock->holder != NULL && lock->holder->priority < curr->priority)
     {
         curr->waiting_lock = lock;
         donate_priority();
