@@ -356,13 +356,15 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	// TODO: file_name bytes 제한
 	// 파일 이름 추출 - malloc
-	size_t file_name_len = 0;
+	size_t file_name_len = 0, prefix_offset = 0;
+	while(file_name[0] == ' ') file_name++;
 	for(file_name_len = 0; file_name[file_name_len] != '\0' && file_name[file_name_len] != ' '; file_name_len++);
 	char *file_name_start = malloc(file_name_len + 1);
 	strlcpy(file_name_start, file_name, file_name_len + 1);
 
 	/* Open executable file. */
 	file = filesys_open (file_name_start);
+	free(file_name_start);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
