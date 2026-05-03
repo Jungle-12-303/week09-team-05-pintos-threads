@@ -228,7 +228,7 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	
+
 	int exit_code = thread_current()->exit_code;
 	printf("%s: exit(%d)\n", thread_name(), exit_code);
 	process_cleanup ();
@@ -459,18 +459,18 @@ load (const char *file_name, struct intr_frame *if_) {
 	// uint64_t arg0_addr = if_->rsp;
 	
 	// 8byte 단위로 word align
-	while(if_->rsp % 8 != 0) {
+	while(if_->rsp % sizeof(intptr_t) != 0) {
 		if_->rsp--;
 		*(uint8_t *) if_->rsp = 0;
 	}
 
 	// argv[argc] = NULL
-	if_->rsp -= 8;
+	if_->rsp -= sizeof(intptr_t);
 	*(uint64_t *)if_->rsp = NULL;
 
 	// argv[i]
 	for(int i = 0; i < argc; i++) {
-		if_->rsp -= 8;
+		if_->rsp -= sizeof(intptr_t);
 		*(uint64_t *)if_->rsp = argv_addrs[argc-i-1];
 	}
 
@@ -478,7 +478,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	uint64_t argv_addr = if_->rsp;
 	
 	// return address: 0
-	if_->rsp -= 8;
+	if_->rsp -= sizeof(intptr_t);
 	*(uint64_t *)if_->rsp = 0;
 
 	// argc
