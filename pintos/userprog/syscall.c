@@ -46,7 +46,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	uint64_t arg0 = f->R.rdi;
 	uint64_t arg1 = f->R.rsi;
 	uint64_t arg2 = f->R.rdx;
-	uint64_t arg3 = f->R.rcx;
+	uint64_t arg3 = f->R.r10;
 	uint64_t arg4 = f->R.r8;
 	uint64_t arg5 = f->R.r9;
 
