@@ -24,6 +24,10 @@
 #include "threads/synch.h"
 #include "lib/string.h"
 
+/* thread.h에 thread name의 버퍼가 16으로 정의되어있습니다. */
+#define THREAD_NAME_MAX 16
+#define MIN(a, b) (a < b ? a : b)
+
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
@@ -53,9 +57,9 @@ process_create_initd (const char *file_name) {
 	strlcpy (fn_copy, file_name, PGSIZE);
 
 	// 스레드 이름은 args 옵션을 뺀 실제 파일 이름이어야한다.
-	char *actual_name, *save_ptr;
-	actual_name = malloc(strlen(file_name) + 1);
-	strlcpy(actual_name, file_name, strlen(file_name) + 1);
+	char actual_name[THREAD_NAME_MAX];
+	char *save_ptr;
+	strlcpy(actual_name, file_name, MIN(strlen(file_name) + 1, THREAD_NAME_MAX));
 	strtok_r(actual_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
