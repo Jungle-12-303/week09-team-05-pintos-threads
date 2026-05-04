@@ -271,6 +271,11 @@ process_exit (void) {
 	int exit_code = thread_current()->exit_code;
 	printf("%s: exit(%d)\n", thread_name(), exit_code);
 	struct child_status *victim_status = get_child_status(curr->tid);
+	if(victim_status == NULL) {
+		process_cleanup ();
+		return;
+	}
+	victim_status->exit_code = exit_code;
 	child_status_sema_up(victim_status);
 	process_cleanup ();
 }
