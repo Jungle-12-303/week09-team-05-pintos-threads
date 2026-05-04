@@ -56,17 +56,20 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		uint64_t fd     = arg0; // File descriptor
 		const void *buf       = (void *)arg1; // buffer
 		size_t buf_size = (size_t)arg2; // size
-
-		if (!is_valid_user_buffer(buf, buf_size))
-		{
-			thread_current()->exit_code = -1;
-			thread_exit();
-		}
+		// TODO 잘못된 fd가 왔을때 처리 로직
 		
 
 		if(fd == 1) {
+			if (!is_valid_user_buffer(buf, buf_size))
+			{
+				thread_current()->exit_code = -1;
+				thread_exit();
+			}
+
 			putbuf(buf, buf_size);
 		}
+
+		// TODO 1이 아닌 실제 파일 입력이 들어왔을때 로직 처리
 
 		// 사용한 바이트 수 만큼 리턴
 		f->R.rax = buf_size;
