@@ -7,6 +7,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include "kernel/stdio.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -41,6 +42,26 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
-	printf ("system call!\n");
-	thread_exit ();
+	uint64_t sys_num = f->R.rax;
+	uint64_t arg0 = f->R.rdi;
+	uint64_t arg1 = f->R.rsi;
+	uint64_t arg2 = f->R.rdx;
+	uint64_t arg3 = f->R.r10;
+	uint64_t arg4 = f->R.r8;
+	uint64_t arg5 = f->R.r9;
+
+	if(sys_num == SYS_WRITE) {
+		uint64_t fd     = arg0; // File descriptor
+		void *buf       = (void *)arg1; // buffer
+		size_t buf_size = (size_t)arg2; // size
+		if(fd == 1) {
+			putbuf(buf, buf_size);
+		}
+
+		// 사용한 바이트 수 만큼 리턴
+		f->R.rax = buf_size;
+	} else if(f->R.rax == SYS_EXIT) {
+		thread_current()->exit_code = arg0;
+		thread_exit();
+	}
 }

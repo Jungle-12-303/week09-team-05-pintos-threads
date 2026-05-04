@@ -21,6 +21,12 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
+#include "threads/synch.h"
+#include "lib/string.h"
+
+/* thread.h에 thread name의 버퍼가 16으로 정의되어있습니다. */
+#define THREAD_NAME_MAX 16
+#define MIN(a, b) (a < b ? a : b)
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
@@ -50,8 +56,14 @@ process_create_initd (const char *file_name) {
 		return TID_ERROR;
 	strlcpy (fn_copy, file_name, PGSIZE);
 
+	// 스레드 이름은 args 옵션을 뺀 실제 파일 이름이어야한다.
+	char actual_name[THREAD_NAME_MAX];
+	char *save_ptr;
+	strlcpy(actual_name, file_name, MIN(strlen(file_name) + 1, THREAD_NAME_MAX));
+	strtok_r(actual_name, " ", &save_ptr);
+
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create (actual_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;
@@ -204,8 +216,11 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while(1){
-	}
+	// 9억 번 돌면서 프로그램 돌아가게 임시로 해놓음.
+	// while(1) {}
+	// printf("TID: %d\n", child_tid);
+	// TODO: 프로세스 기다리기 구현
+	for(int i = 0; i < 100000000*9; i++);
 	return -1;
 }
 
@@ -218,6 +233,8 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
+	int exit_code = thread_current()->exit_code;
+	printf("%s: exit(%d)\n", thread_name(), exit_code);
 	process_cleanup ();
 }
 
@@ -330,6 +347,8 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
+	uint64_t *argv_addrs = NULL; // 인수 주소값
+	char* s = NULL;
 
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
@@ -337,8 +356,25 @@ load (const char *file_name, struct intr_frame *if_) {
 		goto done;
 	process_activate (thread_current ());
 
+	// TODO: file_name bytes 제한
+	// 파일 이름 추출 - malloc
+	s = malloc(strlen(file_name) + 1);
+	char *save_ptr, *token;
+	if(s == NULL) {
+		printf("load: %s: malloc failed\n", file_name);
+		goto done;
+	} 
+	strlcpy(s, file_name, strlen(file_name) + 1);
+	token = strtok_r(s, " ", &save_ptr);
+	char *actual_file_name = token;
+	if(actual_file_name == NULL || strlen(actual_file_name) == 0) {
+		printf("load: actual_file_name is NULL or empty str.\n");
+		goto done;
+	}
+	token = strtok_r(NULL, " ", &save_ptr);
+
 	/* Open executable file. */
-	file = filesys_open (file_name);
+	file = filesys_open (actual_file_name);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -416,14 +452,75 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
 
+	
 	/* TODO: Your code goes here.
-	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+	* TODO: Implement argument passing (see project2/argument_passing.html). */
+	
+	size_t argc = 1, max_argc = 1;
+	// TODO: argv_addrs 사이즈 reasonable로 결정
+	if(strlen(file_name) == 0) {
+		printf("load: file_name len is 0.\n");
+		goto done;
+	}
+	for(int i = 0; i + 1< strlen(file_name); ++i) {
+		if(file_name[i] == ' ' && file_name[i+1] != ' ') {
+			max_argc++;
+		}
+	}
+	if(file_name[0] == ' ') max_argc--;
+	argv_addrs = malloc(sizeof(uint64_t) * max_argc);
+	if(argv_addrs == NULL) {
+		printf ("load: malloc: argv_address failed\n");
+		goto done;
+	}
+	if_->rsp -= strlen(s) + 1;
+	memcpy((void *)if_->rsp, s, strlen(s) + 1);
+	argv_addrs[0] = if_->rsp;
+
+	for(; token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+		if_->rsp -= strlen(token) + 1;
+		memcpy((void *)if_->rsp, token, strlen(token) + 1);
+		argv_addrs[argc] = if_->rsp;
+		++argc;
+	}
+	// uint64_t arg0_addr = if_->rsp;
+	
+	// 8byte 단위로 word align
+	while(if_->rsp % sizeof(intptr_t) != 0) {
+		if_->rsp--;
+		*(uint8_t *) if_->rsp = 0;
+	}
+
+	// argv[argc] = NULL
+	if_->rsp -= sizeof(intptr_t);
+	*(uint64_t *)if_->rsp = NULL;
+
+	// argv[i]
+	for(int i = 0; i < argc; i++) {
+		if_->rsp -= sizeof(intptr_t);
+		*(uint64_t *)if_->rsp = argv_addrs[argc-i-1];
+	}
+
+	// user stack을 위한 메모리 복사
+	uint64_t argv_addr = if_->rsp;
+	
+	// return address: 0
+	if_->rsp -= sizeof(intptr_t);
+	*(uint64_t *)if_->rsp = 0;
+
+	// argc
+	if_->R.rdi = argc;
+
+	// argv[0] address
+	if_->R.rsi = argv_addr;
 
 	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
+	free(s);
+	free(argv_addrs);
 	return success;
 }
 
