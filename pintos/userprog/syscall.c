@@ -92,11 +92,13 @@ static bool is_valid_user_buffer (const void *buffer, size_t size) {
 		return false;
 	}
 
-	if (!is_user_vaddr(start) || !is_user_vaddr(end)) {
+	if (!is_user_vaddr((const void *)start) || !is_user_vaddr((const void *)end)) {
 		return false;
 	}
+
+	uintptr_t addr = (uintptr_t)pg_round_down((const void *)start);
 	
-	for (uintptr_t addr = start; addr <= end; addr = (uintptr_t) pg_round_down((const void *)addr) + PGSIZE) {
+	for (; addr <= end; addr += PGSIZE) {
 		if (pml4_get_page(thread_current()->pml4, (const void *)addr) == NULL) {
 			return false;
 		}
