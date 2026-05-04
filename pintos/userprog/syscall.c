@@ -53,7 +53,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	uint64_t arg5 = f->R.r9;
 
 	if(sys_num == SYS_WRITE) {
-		uint64_t fd     = arg0; // File descriptor
+		int fd = (int)arg0; // File descriptor
 		const void *buf       = (void *)arg1; // buffer
 		size_t buf_size = (size_t)arg2; // size
 		// TODO 잘못된 fd가 왔을때 처리 로직
