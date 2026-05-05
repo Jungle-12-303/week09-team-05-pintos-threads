@@ -8,9 +8,15 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include "kernel/stdio.h"
+#include "filesys/filesys.h"
+#include "filesys/directory.h"
+#include "threads/vaddr.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+void syscall_exit (const int exit_code);
+static void check_user_addr (const void *addr);
+static void check_user_laddr (const void *buf, const size_t size);
 
 /* System call.
  *
@@ -50,7 +56,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	uint64_t arg4 = f->R.r8;
 	uint64_t arg5 = f->R.r9;
 
-	if(sys_num == SYS_WRITE) {
+	switch (sys_num)
+	{
+	case SYS_WRITE:
 		uint64_t fd     = arg0; // File descriptor
 		void *buf       = (void *)arg1; // buffer
 		size_t buf_size = (size_t)arg2; // size
@@ -60,8 +68,53 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		// 사용한 바이트 수 만큼 리턴
 		f->R.rax = buf_size;
-	} else if(f->R.rax == SYS_EXIT) {
-		thread_current()->exit_code = arg0;
-		thread_exit();
+		break;
+	case SYS_CREATE:
+		const char* file      = (const char*)arg0; // file
+		unsigned initial_size = (unsigned)arg1;    // initial_size
+		check_user_laddr(file, NAME_MAX);
+		bool success = filesys_create(file, initial_size);
+		f->R.rax = success;
+		break;
+	case SYS_EXIT:
+		syscall_exit(arg0);
+		break;
+	
+	default:
+		break;
+	}
+}
+
+/* syscall functions */
+
+/* EXIT_CODE로 프로세스를 종료합니다. 이후 process_exit()이 호출됩니다. 
+   비정상적인 종료시 EXIT_CODE에 -1를 지정하세요. */
+void
+syscall_exit (const int exit_code) {
+	thread_current()->exit_code = exit_code;
+	thread_exit();
+}
+
+/* static functions */
+
+/* 최대 SIZE byte만큼 주소가 유효한지 검사합니다. 여러 페이지에 걸쳐서 
+   있을 경우를 검사하기 위해 페이지의 시작 주소가 유효한지 검사합니다. */
+static void
+check_user_laddr (const void *buf, const size_t size) {
+	const char *start = buf;
+	const char *end = start + size;
+	if(size == 0) return;
+	for(uint64_t p = pg_round_down(start); p < end; p += PGSIZE) {
+		check_user_addr(p);
+	}
+	check_user_addr(end - 1);
+}
+
+/* 포인터가 실제로 접근 가능한지 검사합니다. 
+   실패하면 thread_exit()을 하고 -1을 리턴 합니다. */
+static void
+check_user_addr (const void *addr) {
+	if(addr == NULL || !is_user_vaddr(addr) || pml4_get_page(thread_current ()->pml4, addr) == NULL) {
+		syscall_exit(-1);
 	}
 }
