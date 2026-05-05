@@ -87,6 +87,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	} else if(sys_num == SYS_EXIT) {
 		thread_current()->exit_code = arg0;
 		thread_exit();
+	} else if(sys_num == SYS_FORK) {
+		// process_fork (const char *name, struct intr_frame *if_ UNUSED)
+		// 성공하면 tid, 실패하면 TID_ERROR 반환
+		tid_t fork_tid = process_fork((char*)arg0, f);
+		
+		if(fork_tid == TID_ERROR){ // 실패 시 -1 리턴
+			f->R.rax = -1;
+		}else{
+			f->R.rax = fork_tid;
+		}
 	}
 }
 
