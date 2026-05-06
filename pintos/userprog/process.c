@@ -34,6 +34,7 @@ static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
 static bool get_program_name (const char *cmdline, char *program_name, const size_t size);
+static bool push_stack (struct intr_frame *if_, const void *src, size_t size);
 
 /* General process initializer for initd and other process. */
 static void
@@ -522,40 +523,51 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: malloc: argv_address failed\n");
 		goto done;
 	}
-	if_->rsp -= strlen(s) + 1;
-	memcpy((void *)if_->rsp, s, strlen(s) + 1);
+
+	if (!push_stack(if_, s, strlen(s)+1)){
+		goto done;
+	}
 	argv_addrs[0] = if_->rsp;
 
 	for(; token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
-		if_->rsp -= strlen(token) + 1;
-		memcpy((void *)if_->rsp, token, strlen(token) + 1);
+		if (!push_stack(if_, token, strlen(token) + 1))
+			goto done;
+
 		argv_addrs[argc] = if_->rsp;
 		++argc;
 	}
 	// uint64_t arg0_addr = if_->rsp;
 	
 	// 8byte 단위로 word align
+	const uint8_t zero_byte = 0;
+
 	while(if_->rsp % sizeof(intptr_t) != 0) {
-		if_->rsp--;
-		*(uint8_t *) if_->rsp = 0;
+		if(!push_stack(if_, &zero_byte, sizeof zero_byte))
+			goto done;
 	}
 
 	// argv[argc] = NULL
+	const uint64_t zero = 0;
+
 	if_->rsp -= sizeof(intptr_t);
 	*(uint64_t *)if_->rsp = NULL;
+	if (!push_stack(if_, &zero, sizeof zero))
+		goto done;
 
 	// argv[i]
-	for(int i = 0; i < argc; i++) {
-		if_->rsp -= sizeof(intptr_t);
-		*(uint64_t *)if_->rsp = argv_addrs[argc-i-1];
+	for (int i = 0; i < argc; i++) {
+		uint64_t arg_addr = argv_addrs[argc - i - 1];
+
+		if (!push_stack(if_, &arg_addr, sizeof arg_addr))
+			goto done;
 	}
 
 	// user stack을 위한 메모리 복사
 	uint64_t argv_addr = if_->rsp;
 	
 	// return address: 0
-	if_->rsp -= sizeof(intptr_t);
-	*(uint64_t *)if_->rsp = 0;
+	if (!push_stack(if_, &zero, sizeof zero))
+    	goto done;
 
 	// argc
 	if_->R.rdi = argc;
@@ -698,6 +710,33 @@ setup_stack (struct intr_frame *if_) {
 	}
 	return success;
 }
+
+/**
+ * @brief 초기 유저 스택에 SIZE 바이트를 복사한다.
+ * 스택은 아래 방향으로 자라며, setup_stack()이 매핑한 
+ * 한 페이지를 벗어나는 push는 실패 처리한다.
+ * ! project 2 기준으로 스택은 한페이지만 할당 받기 때문에 현재 한페이지만 검증하고 있다.
+ * ! 추후에 스택 구조의 변경이 있으면 해당 헬퍼함수도 변경이 필요할 수 있다.
+ * 
+ * @param if_ 
+ * @param src 
+ * @param size 
+ * @return true 
+ * @return false 
+ * @author hojun-lee99
+ * @date 2026-05-04
+ */
+static bool push_stack (struct intr_frame *if_, const void *src, size_t size) {
+	uint64_t stack_bottom = (uint64_t) USER_STACK - PGSIZE;
+
+	if (if_->rsp < stack_bottom + size)
+		return false;
+
+	if_->rsp -= size;
+	memcpy ((void *) if_->rsp, src, size);
+	return true;
+}
+
 
 /* Adds a mapping from user virtual address UPAGE to kernel
  * virtual address KPAGE to the page table.
