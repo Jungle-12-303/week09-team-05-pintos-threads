@@ -27,5 +27,6 @@ struct fd_table *fd_table_init (void);
 int fd_find_blank (struct fd_table *fdt);
 void fd_entry_free (struct fd_table *fdt, size_t index);
 void fd_table_free (struct fd_table *fdt);
+struct fd_entry *fd_get_entry (struct fd_table *fdt, int fd);
 
 #endif /* USERPROG_FD_H */
