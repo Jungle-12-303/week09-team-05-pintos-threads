@@ -15,6 +15,7 @@
 #include "userprog/fd.h"
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -25,6 +26,7 @@ static bool is_valid_user_buffer (const void *buffer, size_t size);
 static bool check_file_name (const char *s);
 static int syscall_open (const char *file);
 static syscall_write (int fd, const void *buffer, unsigned size);
+static struct lock filesys_lock;
 
 
 /* System call.
@@ -42,6 +44,7 @@ static syscall_write (int fd, const void *buffer, unsigned size);
 
 void
 syscall_init (void) {
+	lock_init(&filesys_lock);
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -134,7 +137,11 @@ syscall_write (int fd, const void *buffer, unsigned size) {
 	enum fd_type opend_file_type = fde->type;
 	if (opend_file == NULL) { return 0; }
 	check_user_laddr(buffer, size);
-	return (int)file_write(opend_file, buffer, size);
+	lock_acquire(&filesys_lock);
+	int byte_written = file_write(opend_file, buffer, size);
+	lock_release(&filesys_lock);
+
+	return byte_written;
 }
 
 /* EXIT_CODE로 프로세스를 종료합니다. 이후 process_exit()이 호출됩니다. 
