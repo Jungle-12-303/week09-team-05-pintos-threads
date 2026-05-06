@@ -1,10 +1,11 @@
 #ifndef USERPROG_FD_H
 #define USERPROG_FD_H
 
-enum file_type {
-    STD_IN,
-    STD_OUT,
-    FILE,
+enum fd_type {
+    FD_STDIN,
+    FD_STDOUT,
+    FD_FILE,
 };
+
 
 #endif /* USERPROG_FD_H */
