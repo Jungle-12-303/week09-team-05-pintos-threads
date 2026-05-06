@@ -136,3 +136,30 @@ fd_get_entry (struct fd_table *fdt, int fd){
     return fde;
 }
 
+
+/**
+ * fdt에 비어있는 fd를 찾아서 file entry에 파일 할당하는 함수
+ */
+int
+fd_table_add_file (struct fd_table *fdt, struct file *file){
+    ASSERT(fdt != NULL); // fdt가 NULL 이면 패닉
+    ASSERT(file != NULL); // file이 NULL 이면 패닉
+
+    int fd;
+    if( (fd = fd_find_blank(fdt)) == -1){ // 빈 fd 찾기 + 예외처리
+        return -1;
+    }
+    
+    struct fd_entry *fde;
+    // 메모리에 fd_endtry 만큼의 공간 할당 요청 + 예외처리
+    if( (fde = malloc(sizeof (struct fd_entry))) == NULL ){
+        return -1;
+    } 
+    
+    fde->type = FD_FILE; // fd_entry 구조체의 file_type에 파일 타입 넣기
+    fde->file = file; // fd_entry 구조체에 파일 주소 넣기
+
+    fdt->fds[fd] = fde; // fd_table에 fd_entry 주소 넣기
+
+    return fd;
+}
