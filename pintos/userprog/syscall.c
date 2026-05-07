@@ -18,6 +18,8 @@
 #include "threads/synch.h"
 #include "threads/init.h"
 #include "lib/user/syscall.h"
+#include "userprog/process.h"
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -148,6 +150,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = false;
 			break;
 		}
+
+		
 		syscall_fork(name);
 		break;
 	}
@@ -198,6 +202,10 @@ syscall_exit (const int exit_code) {
 
 static pid_t
 syscall_fork (const char *thread_name) {
+	struct intr_frame *if_ = &thread_current()->tf;
+
+	process_fork(thread_name, if_);
+
 	return -1;
 }
 
