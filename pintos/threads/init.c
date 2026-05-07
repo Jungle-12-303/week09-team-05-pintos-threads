@@ -82,6 +82,7 @@ main (void) {
 	   then enable console locking. */
 	thread_init ();
 	console_init ();
+	init_process_status_list();
 
 	/* Initialize memory system. */
 	mem_end = palloc_init ();
@@ -242,7 +243,6 @@ run_task (char **argv) {
 
 	printf ("Executing '%s':\n", task);
 #ifdef USERPROG
-	init_process_status_list();
 	if (thread_tests){
 		run_test (task);
 	} else {
