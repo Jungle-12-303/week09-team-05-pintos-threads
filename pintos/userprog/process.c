@@ -166,6 +166,8 @@ __do_fork (void *aux) {
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if;
+	// parent_if->rip = parent->tf.rip;
+
 	parent_if->R.rbx = parent->tf.R.rbx;
 	parent_if->rsp = parent->tf.rsp;
 	parent_if->R.rbp = parent->tf.R.rbp;

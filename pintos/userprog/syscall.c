@@ -19,6 +19,7 @@
 #include "threads/init.h"
 #include "lib/user/syscall.h"
 #include "userprog/process.h"
+#include "userprog/process_child.h"
 
 
 void syscall_entry (void);
@@ -32,6 +33,7 @@ static int syscall_open (const char *file);
 static syscall_write (int fd, const void *buffer, unsigned size);
 static struct lock filesys_lock;
 static pid_t syscall_fork (const char *thread_name);
+static int syscall_wait(pid_t pid);
 
 
 /* System call.
@@ -152,7 +154,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		}
 
 		
-		syscall_fork(name);
+		f->R.rax = syscall_fork(name);
+		break;
+	}
+	case SYS_WAIT:{
+		pid_t pid = (pid_t)arg0;
+
+		f->R.rax = syscall_wait(pid);
+
 		break;
 	}
 	case SYS_EXIT:{
@@ -200,13 +209,38 @@ syscall_exit (const int exit_code) {
 
 /* static functions */
 
+static int
+syscall_wait(pid_t pid) {
+	struct child_status *status = get_child_status(pid);
+
+	printf("pid, tid : %d, %d !!!!!!!!!!!!!!!!!!!!!!!!!!! \n", pid, thread_current()->tid);
+
+	if (status == NULL) { 
+		return -1;
+	} else if(status->exited) {
+		return -1;
+	}
+	if(status->waited) {
+		child_status_sema_down(status);
+
+		printf("!!!!!!!!!!!!!help\n");
+
+		status->waited = false;
+		status->exited = true;
+	} else {
+		return -1;
+	}
+	return status->exit_code;
+}
+
+
+
+
 static pid_t
 syscall_fork (const char *thread_name) {
 	struct intr_frame *if_ = &thread_current()->tf;
 
-	process_fork(thread_name, if_);
-
-	return -1;
+	return process_fork(thread_name, if_);
 }
 
 static int
